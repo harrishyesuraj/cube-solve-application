@@ -1,0 +1,1 @@
+# cube-solve-application
