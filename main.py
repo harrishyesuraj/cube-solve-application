@@ -48,13 +48,16 @@ def convert_to_string(faces):
         if face not in faces:
             raise ValueError(f"Missing face: {face}")
 
+        if len(faces[face]) != 3:
+            raise ValueError(f"Face {face} must have 3 rows")
+
         for row in faces[face]:
             if len(row) != 3:
-                raise ValueError(f"Invalid row size in face {face}")
+                raise ValueError(f"Each row in face {face} must have 3 elements")
 
             for col in row:
                 if col not in color_map:
-                    raise ValueError(f"Invalid color: {col}")
+                    raise ValueError(f"Invalid color detected: {col}")
 
                 cube_string += color_map[col]
 
@@ -68,50 +71,62 @@ def home():
     return {"status": "API running"}
 
 # ================================
-# 7. SOLVE API (FULLY SAFE)
+# 7. VALIDATION FUNCTION
+# ================================
+def validate_cube(cube_string):
+    if len(cube_string) != 54:
+        return False, "Cube string must be 54 characters"
+
+    for c in "URFDLB":
+        if cube_string.count(c) != 9:
+            return False, f"Invalid count for {c}"
+
+    return True, None
+
+# ================================
+# 8. SOLVE API
 # ================================
 @app.post("/solve")
 def solve_cube(data: CubeInput):
     try:
         faces = data.faces
 
-        # ✅ Convert input
+        # Convert faces → cube string
         cube_string = convert_to_string(faces)
 
-        print("Cube string:", cube_string)
+        print("🧊 Cube string:", cube_string)
 
-        # ✅ Check length
-        if len(cube_string) != 54:
+        # Validate cube
+        is_valid, error_msg = validate_cube(cube_string)
+        if not is_valid:
             return {
                 "solution": [],
-                "error": "Invalid cube length"
+                "error": error_msg,
+                "cube_string": cube_string
             }
 
-        # ✅ Check color count (must be exactly 9 each)
-        for c in "URFDLB":
-            if cube_string.count(c) != 9:
-                return {
-                    "solution": [],
-                    "error": f"Invalid color count for {c}"
-                }
-
-        # ✅ Solved cube check
+        # Solved cube check
         solved = "UUUUUUUUURRRRRRRRRFFFFFFFFFDDDDDDDDDLLLLLLLLLBBBBBBBBB"
         if cube_string == solved:
             print("[Solver] Cube is already solved.")
-            return {"solution": []}
+            return {
+                "solution": [],
+                "message": "Cube already solved"
+            }
 
-        # ✅ Solve cube safely
+        # Solve cube
         solution = kociemba.solve(cube_string)
 
         return {
-            "solution": solution.split()
+            "solution": solution.split(),
+            "cube_string": cube_string
         }
 
     except Exception as e:
-        print("ERROR:", e)
+        print("❌ ERROR:", e)
 
         return {
             "solution": [],
-            "error": "Invalid cube or unsolvable configuration"
+            "error": str(e),
+            "message": "Invalid cube or unsolvable configuration"
         }
